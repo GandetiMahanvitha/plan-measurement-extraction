@@ -1,0 +1,31 @@
+ocr:
+  languages: ["en"]
+  gpu: false
+  dimension_allowlist: "0123456789xX.:/-'\"mMftincFTINC "
+  rotation_info: [ 90, 180, 270]
+  debug_raw_detections: false
+  min_size: 3
+  text_threshold: 0.45
+  low_text: 0.25
+  link_threshold: 0.20
+  # image size restriction
+  canvas_size: 3840
+  mag_ratio: 1.5
+  contrast_ths: 0.20
+  adjust_contrast: 0.70
+
+preprocessing:
+  upscale_factor: 2.0
+  gaussian_kernel: 3
+
+confidence:
+  review_threshold: 0.75
+  ocr_weight: 0.45
+  format_weight: 0.25
+  association_weight: 0.30
+
+association:
+  max_normalized_distance: 0.35
+
+validation:
+  numeric_tolerance_mm: 5.0

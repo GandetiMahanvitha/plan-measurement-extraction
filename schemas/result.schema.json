@@ -1,0 +1,226 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Building Plan Measurement Extraction Result",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "plan_id",
+    "status",
+    "source_file",
+    "input_type",
+    "image_width_px",
+    "image_height_px",
+    "primary_unit",
+    "document_source",
+    "scale",
+    "overall_dimensions",
+    "spaces",
+    "measurements",
+    "warnings",
+    "summary"
+  ],
+  "properties": {
+    "schema_version": { "type": "string" },
+    "plan_id": { "type": "string" },
+    "status": { "enum": ["success", "partial", "failed"] },
+    "source_file": { "type": "string" },
+    "input_type": { "type": "string" },
+    "image_width_px": { "type": "integer" },
+    "image_height_px": { "type": "integer" },
+    "primary_unit": { "type": "string" },
+    "document_source": {
+      "type": "object",
+      "required": ["file_name", "page_number"],
+      "properties": {
+        "file_name": { "type": "string" },
+        "page_number": { "type": "integer" }
+      },
+      "additionalProperties": false
+    },
+    "scale": {
+      "type": "object",
+      "required": ["detected"],
+      "properties": {
+        "detected": { "type": "boolean" },
+        "raw_text": { "type": ["string", "null"] },
+        "ratio": { "type": ["number", "null"] },
+        "confidence": { "type": ["number", "null"] }
+      },
+      "additionalProperties": false
+    },
+    "overall_dimensions": {
+      "type": "object",
+      "properties": {
+        "width_mm": { "type": ["number", "null"] },
+        "height_mm": { "type": ["number", "null"] },
+        "width_source": { "type": ["object", "null"] },
+        "height_source": { "type": ["object", "null"] }
+      },
+      "additionalProperties": false
+    },
+    "spaces": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["space_id", "name", "category", "source", "dimensions"],
+        "properties": {
+          "space_id": { "type": "string" },
+          "name": { "type": "string" },
+          "category": { "type": "string" },
+          "source": {
+            "type": "object",
+            "required": ["raw_text", "bounding_box", "extraction_pass"],
+            "properties": {
+              "raw_text": { "type": "string" },
+              "bounding_box": {
+                "type": "object",
+                "required": ["x_min", "y_min", "x_max", "y_max", "normalized"],
+                "properties": {
+                  "x_min": { "type": "number" },
+                  "y_min": { "type": "number" },
+                  "x_max": { "type": "number" },
+                  "y_max": { "type": "number" },
+                  "normalized": { "type": "boolean" }
+                }
+              },
+              "extraction_pass": { "type": "string" }
+            }
+          },
+          "dimensions": { "type": "array", "items": { "type": "string" } }
+        },
+        "additionalProperties": false
+      }
+    },
+    "measurements": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "measurement_id",
+          "type",
+          "raw_text",
+          "value",
+          "secondary_value",
+          "unit",
+          "normalized_value_mm",
+          "normalized_secondary_value_mm",
+          "orientation",
+          "source_type",
+          "associated_element",
+          "source",
+          "confidence",
+          "corroborated_by_dimension_line",
+          "ambiguity",
+          "review_required"
+        ],
+        "properties": {
+          "measurement_id": { "type": "string" },
+          "type": { "type": "string" },
+          "raw_text": { "type": "string" },
+          "value": { "type": ["number", "null"] },
+          "secondary_value": { "type": ["number", "null"] },
+          "unit": { "type": ["string", "null"] },
+          "normalized_value_mm": { "type": ["number", "null"] },
+          "normalized_secondary_value_mm": { "type": ["number", "null"] },
+          "orientation": { "enum": ["horizontal", "vertical", "unknown"] },
+          "source_type": { "type": "string" },
+          "associated_element": {
+            "type": "object",
+            "required": ["element_id", "element_type", "name"],
+            "properties": {
+              "element_id": { "type": ["string", "null"] },
+              "element_type": { "type": "string" },
+              "name": { "type": ["string", "null"] }
+            }
+          },
+          "source": {
+            "type": "object",
+            "required": ["raw_text", "bounding_box", "extraction_pass"],
+            "properties": {
+              "raw_text": { "type": "string" },
+              "bounding_box": {
+                "type": "object",
+                "required": ["x_min", "y_min", "x_max", "y_max", "normalized"],
+                "properties": {
+                  "x_min": { "type": "number" },
+                  "y_min": { "type": "number" },
+                  "x_max": { "type": "number" },
+                  "y_max": { "type": "number" },
+                  "normalized": { "type": "boolean" }
+                }
+              },
+              "extraction_pass": { "type": "string" }
+            }
+          },
+          "confidence": {
+            "type": "object",
+            "required": ["ocr", "format_validation", "association", "overall"],
+            "properties": {
+              "ocr": { "type": "number" },
+              "format_validation": { "type": "number" },
+              "association": { "type": "number" },
+              "overall": { "type": "number" }
+            }
+          },
+          "corroborated_by_dimension_line": { "type": "boolean" },
+          "ambiguity": { "type": ["string", "null"] },
+          "review_required": { "type": "boolean" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["code", "message"],
+        "properties": {
+          "code": { "type": "string" },
+          "message": { "type": "string" },
+          "measurement_id": { "type": ["string", "null"] }
+        },
+        "additionalProperties": false
+      }
+    },
+    "summary": {
+      "type": "object",
+      "required": [
+        "ocr_detections",
+        "spaces_detected",
+        "measurements_detected",
+        "review_required",
+        "high_confidence",
+        "medium_confidence",
+        "low_confidence"
+      ],
+      "properties": {
+        "ocr_detections": { "type": "integer" },
+        "spaces_detected": { "type": "integer" },
+        "measurements_detected": { "type": "integer" },
+        "review_required": { "type": "integer" },
+        "high_confidence": { "type": "integer" },
+        "medium_confidence": { "type": "integer" },
+        "low_confidence": { "type": "integer" }
+      },
+      "additionalProperties": false
+    },
+    "evaluation": {
+      "type": ["object", "null"],
+      "properties": {
+        "expected": { "type": "integer" },
+        "matched": { "type": "integer" },
+        "incorrect_value": { "type": "integer" },
+        "incorrect_unit": { "type": "integer" },
+        "missed": { "type": "integer" },
+        "unexpected": { "type": "integer" },
+        "duplicate_count": { "type": "integer" },
+        "precision": { "type": "number" },
+        "recall": { "type": "number" },
+        "f1": { "type": "number" },
+        "accuracy": { "type": "number" }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

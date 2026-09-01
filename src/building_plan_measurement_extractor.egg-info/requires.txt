@@ -1,0 +1,8 @@
+easyocr<2.0,>=1.7
+opencv-python-headless<5.0,>=4.10
+numpy<3.0,>=1.26
+pydantic<3.0,>=2.8
+PyYAML<7.0,>=6.0
+
+[dev]
+pytest<10.0,>=8.0

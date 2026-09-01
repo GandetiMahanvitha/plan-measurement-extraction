@@ -1,0 +1,51 @@
+{
+  "plan_id": "PLAN1",
+  "measurements": [
+    {
+      "type": "room_dimension_pair",
+      "value_mm": 5400.0,
+      "secondary_value_mm": 4200.0,
+      "element_name": "LIVING / DINING"
+    },
+    {
+      "type": "room_dimension_pair",
+      "value_mm": 3300.0,
+      "secondary_value_mm": 2800.0,
+      "element_name": "KITCHEN"
+    },
+    {
+      "type": "room_dimension_pair",
+      "value_mm": 3600.0,
+      "secondary_value_mm": 3300.0,
+      "element_name": "BEDROOM 1"
+    },
+    {
+      "type": "room_dimension_pair",
+      "value_mm": 3300.0,
+      "secondary_value_mm": 3000.0,
+      "element_name": "BEDROOM 2"
+    },
+    {
+      "type": "room_dimension_pair",
+      "value_mm": 3000.0,
+      "secondary_value_mm": 2400.0,
+      "element_name": "STUDY"
+    },
+    {
+      "type": "room_dimension_pair",
+      "value_mm": 2400.0,
+      "secondary_value_mm": 2000.0,
+      "element_name": "BATH"
+    },
+    {
+      "type": "room_dimension_pair",
+      "value_mm": 1600.0,
+      "secondary_value_mm": 1600.0,
+      "element_name": "STORE / UTILITY"
+    }
+  ],
+  "overall_building_size": {
+    "value_mm": 12000.0,
+    "secondary_value_mm": 9000.0
+  }
+}

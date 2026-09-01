@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "building-plan-measurement-extractor"
+version = "0.1.0"
+description = "Prototype architectural plan measurement extraction pipeline"
+requires-python = ">=3.11"
+dependencies = [
+    "easyocr>=1.7,<2.0",
+    "opencv-python-headless>=4.10,<5.0",
+    "numpy>=1.26,<3.0",
+    "pydantic>=2.8,<3.0",
+    "PyYAML>=6.0,<7.0"
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0,<10.0"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
