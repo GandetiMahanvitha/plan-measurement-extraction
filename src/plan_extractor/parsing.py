@@ -3,34 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 import re
 
-# do we need this because whatever is the room name we want the same name if 
-#it is bedroom1 i want it to be seen as bedroom1 in json
-# this list is limited moving forward we can add more keywords to this list as we encounter more room types in the plans
-ROOM_KEYWORDS = {
-    "bedroom": "bedroom",
-    "master bedroom": "bedroom",
-    "guest room": "bedroom",
-    "living": "living",
-    "living room": "living",
-    "living / dining": "living_dining",
-    "living/dining": "living_dining",
-    "dining": "dining",
-    "dining room": "dining",
-    "kitchen": "kitchen",
-    "bath": "bathroom",
-    "bathroom": "bathroom",
-    "wc": "bathroom",
-    "study": "study",
-    "office": "study",
-    "utility": "utility",
-    "laundry": "utility",
-    "store": "storage",
-    "storage": "storage",
-    "garage": "garage",
-    "hall": "hall",
-    "corridor": "corridor",
-    "foyer": "foyer",
-}
+NON_ROOM_TEXT = {"sample", "plan", "scale", "north"}
+_ROOM_LABEL_PATTERN = re.compile(r"[A-Za-z][A-Za-z0-9/ ]*")
 
 
 @dataclass(frozen=True)
@@ -52,18 +26,18 @@ def normalize_ocr_text(text: str) -> str:
     text = re.sub(r"\s+", " ", text)
     return text
 
-#we don't need this
-def classify_room_label(text: str) -> str | None:
-    """Map recognized room words to a normalized room category.
-    It returns None for text that does not identify a supported room type.
-    """
-    lower = normalize_ocr_text(text).lower()
-    # Remove simple room numbers, but keep words.
-    lower_words = re.sub(r"\b\d+\b", "", lower).strip(" -/")
-    for keyword, category in sorted(ROOM_KEYWORDS.items(), key=lambda x: len(x[0]), reverse=True):
-        if keyword in lower_words:
-            return category
-    return None
+
+def is_plausible_room_label(text: str) -> bool:
+    """Check the OCR text shape and vocabulary for a plausible room label."""
+    normalized = normalize_ocr_text(text)
+    if not _ROOM_LABEL_PATTERN.fullmatch(normalized):
+        return False
+
+    words = re.findall(r"[A-Za-z]+", re.sub(r"[\d/]", "", normalized).lower())
+    return (
+        any(len(word) >= 3 for word in words)
+        and not any(word in NON_ROOM_TEXT for word in words)
+    )
 
 
 def parse_scale(text: str) -> ParsedMeasurement | None:
@@ -72,7 +46,7 @@ def parse_scale(text: str) -> ParsedMeasurement | None:
     """
     clean = normalize_ocr_text(text)
     clean = re.sub(r"^[^A-Za-z0-9]*", "", clean)
-    m = re.search(r"(?:scale\s*)?1\s*[:/]\s*(\d{1,4})", clean, re.I)
+    m = re.search(r"(?:scale\s*)?1\s*[:/.]\s*(\d{1,4})", clean, re.I)
     if not m:
         return None
     ratio = float(m.group(1))

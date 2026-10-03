@@ -2,7 +2,16 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Iterable
+import re
+
 import numpy as np
+
+from .parsing import is_plausible_room_label
+
+
+_SINGLE_DIMENSION_PATTERN = re.compile(r"[1-9]\d{2,4}")
+_DIMENSION_PAIR_PATTERN = re.compile(r"[1-9]\d{2,4}\s*[xX×]\s*[1-9]\d{2,4}")
+_SCALE_PATTERN = re.compile(r"(?:SCALE\s*)?1\s*[:.]\s*\d{1,4}", re.IGNORECASE)
 
 
 @dataclass(frozen=True)
@@ -31,6 +40,31 @@ class OCRDetection:
     def y_max(self) -> float:
         """Return the largest y coordinate in the detected quadrilateral."""
         return max(p[1] for p in self.bbox)
+
+
+def filter_detections_by_text_shape(
+    detections: list[OCRDetection],
+    room_label_min_confidence: float,
+) -> list[OCRDetection]:
+    """Keep dimension-like text and confident, supported room labels."""
+    filtered = []
+    for detection in detections:
+        text = detection.text.strip()
+        if not text:
+            continue
+        if (
+            _SINGLE_DIMENSION_PATTERN.fullmatch(text)
+            or _DIMENSION_PAIR_PATTERN.fullmatch(text)
+            or _SCALE_PATTERN.fullmatch(text)
+        ):
+            filtered.append(detection)
+            continue
+        if (
+            is_plausible_room_label(text)
+            and detection.confidence >= room_label_min_confidence
+        ):
+            filtered.append(detection)
+    return filtered
 
 
 class EasyOCREngine:

@@ -62,11 +62,10 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["space_id", "name", "category", "source", "dimensions"],
+        "required": ["space_id", "name", "source", "dimensions"],
         "properties": {
           "space_id": { "type": "string" },
           "name": { "type": "string" },
-          "category": { "type": "string" },
           "source": {
             "type": "object",
             "required": ["raw_text", "bounding_box", "extraction_pass"],

@@ -21,8 +21,8 @@ from .models import (
     Space,
     WarningItem,
 )
-from .ocr_engine import EasyOCREngine, deduplicate
-from .parsing import classify_room_label, parse_measurement
+from .ocr_engine import EasyOCREngine, deduplicate, filter_detections_by_text_shape
+from .parsing import is_plausible_room_label, parse_measurement
 from .preprocessing import build_variants, load_image
 from .validation import evaluate_measurements, load_ground_truth
 
@@ -357,6 +357,20 @@ def extract_plan(
         and len(det.text.strip()) >= 3
     ]
 
+    print("=" * 60)
+    print("RAW OCR OUTPUT — nothing filtered or parsed yet")
+    print("=" * 60)
+    print(f"\n--- 'general' pass ({len(general)} detections) ---")
+    for det in general:
+        print(f"  text={det.text!r}, confidence={det.confidence:.4f}")
+    print(f"\n--- 'dimensions' pass ({len(dimensions)} detections) ---")
+    for det in dimensions:
+        print(f"  text={det.text!r}, confidence={det.confidence:.4f}")
+    print(f"\n--- 'edge_dimensions' pass ({len(edge_dimensions)} detections) ---")
+    for det in edge_dimensions:
+        print(f"  text={det.text!r}, confidence={det.confidence:.4f}")
+    print("=" * 60)
+
 
     # Because OCR was run on the upscaled variants, normalize boxes back to
     # original image coordinates. This must happen BEFORE deduplication so that
@@ -381,7 +395,15 @@ def extract_plan(
     edge_dimensions = [apply_scaling(det, offset=padding) for det in edge_dimensions]
 
     # Now deduplicate with all detections in the same coordinate space.
-    detections = deduplicate(general + dimensions + edge_dimensions)
+    room_label_min_confidence = float(
+        config["confidence"].get("review_threshold", 0.75)
+    )
+    detections = deduplicate(
+        filter_detections_by_text_shape(
+            general + dimensions + edge_dimensions,
+            room_label_min_confidence,
+        )
+    )
     # for det in general:
     #     print(f"  text={det.text!r}, confidence={det.confidence:.4f}, bbox={det.bbox}")
 
@@ -389,14 +411,12 @@ def extract_plan(
     warnings: list[WarningItem] = []
 
     for det in detections:
-        category = classify_room_label(det.text)
-        if not category:
+        if not is_plausible_room_label(det.text):
             continue
         spaces.append(
             Space(
                 space_id=f"SPACE-{len(spaces)+1:03d}",
                 name=det.text.strip(),
-                category=category,
                 source=_source(det),
             )
         )
@@ -448,6 +468,10 @@ def extract_plan(
     scale_crop = variants["upscaled_gray"][scale_crop_top:, :]
     scale_crop_detections = engine.read_general(scale_crop)
     from .ocr_engine import OCRDetection
+    scale_crop_detections = filter_detections_by_text_shape(
+        scale_crop_detections,
+        room_label_min_confidence,
+    )
     for det in scale_crop_detections:
         if not parse_measurement(det.text) or parse_measurement(det.text).kind != "scale":
             continue
@@ -552,6 +576,10 @@ def extract_plan(
         width_crop = variants["upscaled_gray"][:width_crop_height, :]
         width_crop_detections = engine.read_general(width_crop)
         
+        width_crop_detections = filter_detections_by_text_shape(
+            width_crop_detections,
+            room_label_min_confidence,
+        )
         for det in width_crop_detections:
             parsed = parse_measurement(det.text)
             if not parsed or parsed.kind == "scale":
@@ -681,6 +709,15 @@ def extract_plan(
 
     tolerance = float(config["validation"].get("numeric_tolerance_mm", 5.0))
     measurement_list = _merge_room_dimensions(measurement_list, spaces, tolerance)
+
+    for space in spaces:
+        if not space.dimensions:
+            warnings.append(
+                WarningItem(
+                    code="ROOM_WITHOUT_DIMENSIONS",
+                    message=f"Room {space.name!r} has no associated dimensions.",
+                )
+            )
 
     for measurement in measurement_list:
         if measurement.review_required:
