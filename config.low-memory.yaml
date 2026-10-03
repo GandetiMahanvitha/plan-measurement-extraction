@@ -1,8 +1,9 @@
 ocr:
   languages: ["en"]
   gpu: false
+  general_passes: 1
   dimension_allowlist: "0123456789xX.:/-'\"mMftincFTINC "
-  rotation_info: [90, 180, 270]
+  rotation_info: [90, 270]
   debug_raw_detections: false
   min_size: 5
   text_threshold: 0.55

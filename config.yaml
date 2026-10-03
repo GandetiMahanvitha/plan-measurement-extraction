@@ -1,6 +1,7 @@
 ocr:
   languages: ["en"]
   gpu: false
+  general_passes: 3
   dimension_allowlist: "0123456789xX.:/-'\"mMftincFTINC "
   rotation_info: [ 90, 180, 270]
   debug_raw_detections: false
