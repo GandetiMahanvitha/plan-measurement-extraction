@@ -157,3 +157,5 @@ def deduplicate(detections: list[OCRDetection]) -> list[OCRDetection]:
         if not duplicate:
             kept.append(item)
     return kept
+
+    #check if i can avoid deduplication and IOU beacuse i need to run image at once 

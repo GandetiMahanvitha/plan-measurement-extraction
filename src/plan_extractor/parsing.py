@@ -3,7 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 import re
 
-
+# do we need this because whatever is the room name we want the same name if 
+#it is bedroom1 i want it to be seen as bedroom1 in json
 # this list is limited moving forward we can add more keywords to this list as we encounter more room types in the plans
 ROOM_KEYWORDS = {
     "bedroom": "bedroom",
@@ -51,7 +52,7 @@ def normalize_ocr_text(text: str) -> str:
     text = re.sub(r"\s+", " ", text)
     return text
 
-
+#we don't need this
 def classify_room_label(text: str) -> str | None:
     """Map recognized room words to a normalized room category.
     It returns None for text that does not identify a supported room type.
@@ -122,7 +123,7 @@ def parse_dimension_pair(text: str) -> ParsedMeasurement | None:
             secondary_value=_metric_to_mm(v2, u2 or unit),
             unit="mm",
         )
-
+#how can I assume if no unit present it is mm
   #makes an assumption like no unit present it is mm
     if 100 <= v1 <= 100000 and 100 <= v2 <= 100000:
         return ParsedMeasurement(
@@ -134,7 +135,7 @@ def parse_dimension_pair(text: str) -> ParsedMeasurement | None:
         )
     return None
 
-
+#chatgpt says this has an edge case
 def _parse_fraction(whole: str, numerator: str, denominator: str) -> float:
     """Convert a whole-number fraction expression into a floating-point value."""
     try:
@@ -144,6 +145,13 @@ def _parse_fraction(whole: str, numerator: str, denominator: str) -> float:
         return 0.0
 
 
+#not supported
+#12 1/2' — fractional feet
+#12.5' — decimal feet
+#12'-1/2" — fractional inches without a whole-inch number
+#12'-6.5" — decimal inches
+#12′-6″ — typographic prime symbols instead of straight ' and "
+#12 ft 6 in — spelled-out units
 def parse_imperial(text: str) -> ParsedMeasurement | None:
     """Parse feet-and-inch notation and convert it to millimeters.
 
@@ -171,11 +179,11 @@ def parse_imperial(text: str) -> ParsedMeasurement | None:
         unit="mm",
     )
 
-
+# 9.5 not handled
 def parse_inches_only(text: str) -> ParsedMeasurement | None:
     """Parse bare inch values, including optional fractional inches, to millimeters."""
     clean = normalize_ocr_text(text)
-    # Examples: 34", 9.5", 34 1/2"  (bare inches, no feet)
+    # Examples: 34", 34 1/2"  (bare inches, no feet)
     m = re.fullmatch(r"(\d+)(?:\s+(\d+)\s*/\s*(\d+))?\s*\"", clean)
     if not m:
         return None
@@ -239,3 +247,5 @@ def parse_measurement(text: str) -> ParsedMeasurement | None:
         or parse_dimension_pair(text)
         or parse_single_dimension(text)
     )
+#Examples it doesn’t currently handle include fractional feet (12 1/2'), decimal inches (9.5"), '
+#'or an inch fraction without a whole number (1/2"). So it handles a specific set of patterns, not all formats.

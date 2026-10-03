@@ -357,6 +357,7 @@ def extract_plan(
         and len(det.text.strip()) >= 3
     ]
 
+
     # Because OCR was run on the upscaled variants, normalize boxes back to
     # original image coordinates. This must happen BEFORE deduplication so that
     # detections from different OCR passes can be correctly compared for overlap.
