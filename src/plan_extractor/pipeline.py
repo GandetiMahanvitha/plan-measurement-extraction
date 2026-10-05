@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from time import perf_counter
 from uuid import uuid4
 
 import cv2
@@ -21,8 +22,8 @@ from .models import (
     Space,
     WarningItem,
 )
-from .ocr_engine import EasyOCREngine, OCRDetection, deduplicate
-from .parsing import ParsedMeasurement, classify_room_label, parse_measurement
+from .ocr_engine import EasyOCREngine, deduplicate, filter_detections_by_text_shape
+from .parsing import is_plausible_room_label, parse_measurement
 from .preprocessing import build_variants, load_image
 from .validation import evaluate_measurements, load_ground_truth
 
@@ -329,9 +330,9 @@ def _compute_iou(bbox1, bbox2) -> float:
     return intersection / union
 
 
-def _merge_general_ocr_passes(pass1, pass2, pass3, iou_threshold=0.70) -> list:
-    """Merge 3 OCR detection passes using majority voting on text and highest confidence.
-    Groups detections across the 3 runs whose bounding boxes overlap significantly (>IoU threshold).
+def _merge_general_ocr_passes(passes, iou_threshold=0.70) -> list:
+    """Merge general OCR detections across passes using voting and confidence.
+    Groups detections whose bounding boxes overlap significantly (>IoU threshold).
     For each group:
     - If 2+ runs agree on exact same text: use that text with highest confidence among agreeing detections.
     - If all 3 disagree: use highest confidence detection.
@@ -339,14 +340,11 @@ def _merge_general_ocr_passes(pass1, pass2, pass3, iou_threshold=0.70) -> list:
     """
     from .ocr_engine import OCRDetection
     
-    # All detections across all 3 passes, tagged with pass number
+    # All detections across passes, tagged with pass number
     tagged_detections = []
-    for det in pass1:
-        tagged_detections.append((det, 0))
-    for det in pass2:
-        tagged_detections.append((det, 1))
-    for det in pass3:
-        tagged_detections.append((det, 2))
+    for pass_num, detections in enumerate(passes):
+        for det in detections:
+            tagged_detections.append((det, pass_num))
     
     # Track which detections have been grouped
     grouped = set()
@@ -408,8 +406,11 @@ def extract_plan(
     image_path: str | Path,
     config: dict,
     ground_truth_path: str | Path | None = None,
+    engine: EasyOCREngine | None = None,
 ) -> PlanResult:
     """Extract spaces, dimensions, evidence, and validation data from a plan image."""
+    total_started = perf_counter()
+    preprocessing_started = perf_counter()
     path = Path(image_path)
     if not path.exists():
         raise FileNotFoundError(path)
@@ -420,14 +421,43 @@ def extract_plan(
     height, width = image.shape[:2]
     variants = build_variants(image, config)
     scale_factor = float(config["preprocessing"].get("upscale_factor", 2.0))
+    preprocessing_seconds = perf_counter() - preprocessing_started
+    print(f"Timing [{path.name}] preprocessing: {preprocessing_seconds:.3f}s")
 
-    engine = EasyOCREngine(config)
+    engine_init_seconds = 0.0
+    if engine is None:
+        engine_started = perf_counter()
+        engine = EasyOCREngine(config)
+        engine_init_seconds = perf_counter() - engine_started
+        print(f"Timing [{path.name}] OCR engine initialization: {engine_init_seconds:.3f}s")
 
-    # Run general OCR pass 3 times and merge results using voting to reduce non-determinism.
-    general_pass1 = engine.read_general(variants["upscaled_gray"])
-    general_pass2 = engine.read_general(variants["upscaled_gray"])
-    general_pass3 = engine.read_general(variants["upscaled_gray"])
-    general = _merge_general_ocr_passes(general_pass1, general_pass2, general_pass3, iou_threshold=0.70)
+    ocr_seconds = 0.0
+
+    def timed_ocr(label: str, reader, *args):
+        nonlocal ocr_seconds
+        started = perf_counter()
+        detections = reader(*args)
+        elapsed = perf_counter() - started
+        ocr_seconds += elapsed
+        print(f"Timing [{path.name}] OCR {label}: {elapsed:.3f}s")
+        return detections
+
+    general_pass_count = int(config["ocr"].get("general_passes", 3))
+    if general_pass_count < 1:
+        raise ValueError("ocr.general_passes must be at least 1")
+    general_passes = [
+        timed_ocr(
+            f"general_full_pass_{pass_num + 1}",
+            engine.read_general,
+            variants["upscaled_gray"],
+        )
+        for pass_num in range(general_pass_count)
+    ]
+    general = (
+        _merge_general_ocr_passes(general_passes, iou_threshold=0.70)
+        if general_pass_count > 1
+        else general_passes[0]
+    )
     
     padding = 100
     padded_thresholded = cv2.copyMakeBorder(
@@ -439,8 +469,15 @@ def extract_plan(
         cv2.BORDER_CONSTANT,
         value=255,
     )
-    dimensions = engine.read_dimensions(variants["thresholded"])
-    edge_dimensions = engine.read_dimensions(padded_thresholded, "dimension_edge")
+    dimensions = timed_ocr(
+        "dimensions", engine.read_dimensions, variants["thresholded"]
+    )
+    edge_dimensions = timed_ocr(
+        "edge_dimensions",
+        engine.read_dimensions,
+        padded_thresholded,
+        "dimension_edge",
+    )
     # what is this logic
     edge_dimensions = [
         det
@@ -450,6 +487,21 @@ def extract_plan(
         and det.y_max <= padding + height
         and len(det.text.strip()) >= 3
     ]
+
+    print("=" * 60)
+    print("RAW OCR OUTPUT — nothing filtered or parsed yet")
+    print("=" * 60)
+    print(f"\n--- 'general' pass ({len(general)} detections) ---")
+    for det in general:
+        print(f"  text={det.text!r}, confidence={det.confidence:.4f}")
+    print(f"\n--- 'dimensions' pass ({len(dimensions)} detections) ---")
+    for det in dimensions:
+        print(f"  text={det.text!r}, confidence={det.confidence:.4f}")
+    print(f"\n--- 'edge_dimensions' pass ({len(edge_dimensions)} detections) ---")
+    for det in edge_dimensions:
+        print(f"  text={det.text!r}, confidence={det.confidence:.4f}")
+    print("=" * 60)
+
 
     # Because OCR was run on the upscaled variants, normalize boxes back to
     # original image coordinates. This must happen BEFORE deduplication so that
@@ -474,7 +526,15 @@ def extract_plan(
     edge_dimensions = [apply_scaling(det, offset=padding) for det in edge_dimensions]
 
     # Now deduplicate with all detections in the same coordinate space.
-    detections = deduplicate(general + dimensions + edge_dimensions)
+    room_label_min_confidence = float(
+        config["confidence"].get("review_threshold", 0.75)
+    )
+    detections = deduplicate(
+        filter_detections_by_text_shape(
+            general + dimensions + edge_dimensions,
+            room_label_min_confidence,
+        )
+    )
     # for det in general:
     #     print(f"  text={det.text!r}, confidence={det.confidence:.4f}, bbox={det.bbox}")
 
@@ -482,14 +542,12 @@ def extract_plan(
     warnings: list[WarningItem] = []
 
     for det in detections:
-        category = classify_room_label(det.text)
-        if not category:
+        if not is_plausible_room_label(det.text):
             continue
         spaces.append(
             Space(
                 space_id=f"SPACE-{len(spaces)+1:03d}",
                 name=det.text.strip(),
-                category=category,
                 source=_source(det),
             )
         )
@@ -539,8 +597,14 @@ def extract_plan(
     # bottom-region location separately before classifying measurements.
     scale_crop_top = int(variants["upscaled_gray"].shape[0] * 0.80)
     scale_crop = variants["upscaled_gray"][scale_crop_top:, :]
-    scale_crop_detections = engine.read_general(scale_crop)
+    scale_crop_detections = timed_ocr(
+        "scale_crop", engine.read_general, scale_crop
+    )
     from .ocr_engine import OCRDetection
+    scale_crop_detections = filter_detections_by_text_shape(
+        scale_crop_detections,
+        room_label_min_confidence,
+    )
     for det in scale_crop_detections:
         if not parse_measurement(det.text) or parse_measurement(det.text).kind != "scale":
             continue
@@ -647,8 +711,14 @@ def extract_plan(
     if not overall_width_candidates:
         width_crop_height = int(variants["upscaled_gray"].shape[0] * 0.15)
         width_crop = variants["upscaled_gray"][:width_crop_height, :]
-        width_crop_detections = engine.read_general(width_crop)
+        width_crop_detections = timed_ocr(
+            "width_fallback_crop", engine.read_general, width_crop
+        )
         
+        width_crop_detections = filter_detections_by_text_shape(
+            width_crop_detections,
+            room_label_min_confidence,
+        )
         for det in width_crop_detections:
             parsed = parse_measurement(det.text)
             if not parsed or parsed.kind == "scale":
@@ -774,6 +844,15 @@ def extract_plan(
     tolerance = float(config["validation"].get("numeric_tolerance_mm", 5.0))
     measurement_list = _merge_room_dimensions(measurement_list, spaces, tolerance)
 
+    for space in spaces:
+        if not space.dimensions:
+            warnings.append(
+                WarningItem(
+                    code="ROOM_WITHOUT_DIMENSIONS",
+                    message=f"Room {space.name!r} has no associated dimensions.",
+                )
+            )
+
     for measurement in measurement_list:
         if measurement.review_required:
             warnings.append(
@@ -857,5 +936,16 @@ def extract_plan(
             tolerance_mm=tolerance,
             duplicate_warning_count=dup_count,
         )
+
+    total_seconds = perf_counter() - total_started
+    rest_seconds = max(
+        0.0,
+        total_seconds
+        - preprocessing_seconds
+        - engine_init_seconds
+        - ocr_seconds,
+    )
+    print(f"Timing [{path.name}] rest: {rest_seconds:.3f}s")
+    print(f"Timing [{path.name}] total: {total_seconds:.3f}s")
 
     return result

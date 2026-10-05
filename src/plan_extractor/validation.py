@@ -172,3 +172,10 @@ def evaluate_measurements(
         f1=round(f1, 4),
         accuracy=round(accuracy, 4),
     )
+
+ #   - If the ground truth says “Bedroom” but OCR associates the dimension with no room—or a differently named room—the code won’t fall back to matching the values. It can report a miss even if the numbers are right.
+#- When several extracted measurements have the same room name, it picks the closest values, even if they’re outside the 5 mm tolerance; it then classifies that chosen result as wrong.
+#- If there’s no room name in the ground truth, it takes the first value match within tolerance. Results can depend on the order of the extracted measurements.
+#- The matching doesn’t compare the measurement type, and unit-mismatch detection checks the primary value only.
+#- Its accuracy formula is the project’s chosen definition; it should be described as a custom evaluation metric, not assumed to cover every standard meaning of “accuracy.”
+#So it’s fine as an initial way to compare these sample plans, as long as you explain the limits. It does not prove the extractor handles all dimensions or all possible matching cases.

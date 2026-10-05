@@ -1,0 +1,9 @@
+setting,plan,seconds,correct,incorrect,missed
+A,plan2,80.799,4,1,1
+B,plan2,49.011,4,1,1
+C,plan2,45.833,4,1,1
+C,plan1,54.737,5,0,2
+C,plan2,50.418,4,1,1
+C,plan3,51.838,7,0,0
+C,plan4,54.407,6,1,0
+C,plan5,45.055,5,0,2

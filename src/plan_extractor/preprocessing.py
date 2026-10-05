@@ -20,7 +20,7 @@ def build_variants(image: np.ndarray, config: dict) -> dict[str, np.ndarray]:
     kernel = int(config["preprocessing"].get("gaussian_kernel", 3))
     if kernel % 2 == 0:
         kernel += 1
-
+#why enlarge image everytime
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     upscaled = cv2.resize(
         gray,

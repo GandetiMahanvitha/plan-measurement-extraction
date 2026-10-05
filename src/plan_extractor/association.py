@@ -60,7 +60,7 @@ def axis_alignment_score(
     best_gap = min(x_gap, y_gap)
     return max(0.0, 1.0 - best_gap * 4.0)  # 0.25 normalized gap -> score 0
 
-
+#check  logic
 def nearest_space(
     measurement_box: BoundingBox,
     spaces,

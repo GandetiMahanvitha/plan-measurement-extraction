@@ -44,7 +44,6 @@ def test_matching_dimension_lines_are_absorbed_by_room_pair():
     space = Space(
         space_id="SPACE-001",
         name="BEDROOM 1",
-        category="bedroom",
         source=pair.source,
         dimensions=["DIM-0001", "DIM-0002", "DIM-0003"],
     )
@@ -75,7 +74,6 @@ def test_missing_pair_is_inferred_from_horizontal_and_vertical_singles():
     space = Space(
         space_id="SPACE-001",
         name="BEDROOM 1",
-        category="bedroom",
         source=width.source,
         dimensions=["DIM-0001", "DIM-0002"],
     )
@@ -95,7 +93,6 @@ def test_missing_leading_one_is_corrected_from_matching_pair():
     space = Space(
         space_id="SPACE-001",
         name="UTILITY",
-        category="utility",
         source=corrupted.source,
         dimensions=["DIM-0001", "DIM-0003"],
     )
@@ -114,7 +111,6 @@ def test_single_dimension_without_pair_is_flagged_for_review():
     space = Space(
         space_id="SPACE-001",
         name="BATH",
-        category="bathroom",
         source=single.source,
         dimensions=["DIM-0001"],
     )

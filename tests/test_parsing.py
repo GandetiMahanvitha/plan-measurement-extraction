@@ -1,5 +1,5 @@
 from plan_extractor.parsing import (
-    classify_room_label,
+    is_plausible_room_label,
     parse_dimension_pair,
     parse_scale,
     parse_single_dimension,
@@ -27,6 +27,12 @@ def test_scale():
     assert parsed.ratio == 100
 
 
+def test_scale_with_period_separator():
+    parsed = parse_scale("SCALE 1.100")
+    assert parsed is not None
+    assert parsed.ratio == 100
+
+
 def test_scale_with_leading_ocr_punctuation():
     parsed = parse_scale("~SCALE 1:100")
     assert parsed is not None
@@ -39,7 +45,16 @@ def test_imperial_dimension():
     assert round(parsed.value, 1) == 3810.0
 
 
-def test_room_label():
-    assert classify_room_label("BEDROOM 1") == "bedroom"
-    assert classify_room_label("LIVING / DINING") == "living_dining"
-    assert classify_room_label("A-102") is None
+def test_plausible_room_labels():
+    assert is_plausible_room_label("BEDROOM 1")
+    assert is_plausible_room_label("PORCH")
+    assert is_plausible_room_label("LIVING / DINING")
+    assert is_plausible_room_label("LAUNDRY /")
+
+
+def test_implausible_room_labels():
+    assert not is_plausible_room_label("T")
+    assert not is_plausible_room_label("Sample Plan 2")
+    assert not is_plausible_room_label("SCALE 1:100")
+    assert not is_plausible_room_label("3000 x 2800")
+    assert not is_plausible_room_label("A-102")

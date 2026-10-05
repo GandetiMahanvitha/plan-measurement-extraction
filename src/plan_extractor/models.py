@@ -79,7 +79,6 @@ class Measurement(BaseModel):
 class Space(BaseModel):
     space_id: str
     name: str
-    category: str
     source: SourceReference
     dimensions: list[str] = Field(default_factory=list)
 
