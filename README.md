@@ -259,9 +259,10 @@ The prototype avoids treating OCR confidence as the only truth signal.
 
 Example:
 OCR confidence:             0.68
-Format validation:          1.00
 Spatial association:        0.92
-Application confidence:     0.82
+Application confidence:     0.78
+
+The overall confidence is calculated as `0.6 * OCR confidence + 0.4 * association confidence`.
  
 A lower-confidence but syntactically valid measurement is retained and marked for review instead of silently discarded.
 

@@ -20,6 +20,11 @@ The prototype uses a hybrid approach:
 
 The first version focuses on image-based plans and explicit dimensions.
 
+## unit assumption 
+
+The sample plans has dimensions without units (for example `3600`). 
+This version assumes millimetres, which is common on metric plans.
+
 
 ## 2. V1 pipeline
 
@@ -146,10 +151,10 @@ OCR confidence alone is not sufficient.
 V1 combines:
 
 - OCR confidence
-- format validity
--  association confidence
+- association confidence
 
-The exact weights are configuration, not hard-coded business truth.
+Overall confidence is `0.6 * OCR confidence + 0.4 * association confidence`.
+For overall dimensions, association confidence is fixed at `1.0`.
 The purpose is to demonstrate that low-confidence values should be retained with warnings rather than silently discarded.
 
 ## 8. Output schema justification
@@ -182,7 +187,6 @@ The JSON preserves:
 
 ### Reliability
 - OCR confidence
-- format confidence
 - association confidence
 - overall confidence
 - ambiguity
@@ -456,6 +460,15 @@ F1        = 0.6667 (66.67%)
 Accuracy  = 5 / (5 + 2 + 3) = 0.5 (50%)
 
 This evaluation ensures that the application output is measured for reliability, rather than assuming every extracted value is correct.
+
+## Issues found and work in progress
+
+After completing this version I reviewed the code and found several issues. I am testing fixes in a separate copy of the project and measuring each one against the ground truth before moving it here. None of the following is part of this submitted version.
+
+1. **Room-name list.** Only room names in a fixed list are recognised, so an unfamiliar room type such as a porch would be dropped silently. In the working copy, replacing the list with a check on the text's shape gave identical scores on all five plans, so this is a robustness improvement and not an accuracy gain. The same testing showed that a confidence cut-off for room labels dropped `GUEST ROOM` (confidence 0.737) on Plan 5, so that cut-off needs tuning.
+2. **Number of OCR runs.** This version reads the full plan three times and also runs a dimension pass, an edge pass and two small crops, up to seven OCR calls per plan. On Plan 2 the three full reads returned the same detections as a single read, and using one read took the run from about 81 seconds to about 49 seconds with identical results.
+3. **Rotation setting.** With rotation enabled, some horizontal text lines (for example `UTILITY` and `3600 x 3300` on Plan 1) are misread as `1`. With rotation off they are read correctly, but the vertical dimension numbers along the walls are misread and Plan 4 gets worse. Wide boxes and tall boxes behave differently, so I am testing choosing the reading according to the box shape.
+4. **Missing-dimension warning.** A room that ends up with no dimensions gets no warning in this version (for example `DINING` on Plan 5). The working copy adds one.
 
 
 ## AI-Assisted Development

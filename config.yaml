@@ -20,9 +20,8 @@ preprocessing:
 
 confidence:
   review_threshold: 0.75
-  ocr_weight: 0.45
-  format_weight: 0.25
-  association_weight: 0.30
+  ocr_weight: 0.6
+  association_weight: 0.4
 
 association:
   max_normalized_distance: 0.35

@@ -21,13 +21,16 @@ from .models import (
     Space,
     WarningItem,
 )
-from .ocr_engine import EasyOCREngine, deduplicate
-from .parsing import classify_room_label, parse_measurement
+from .ocr_engine import EasyOCREngine, OCRDetection, deduplicate
+from .parsing import ParsedMeasurement, classify_room_label, parse_measurement
 from .preprocessing import build_variants, load_image
 from .validation import evaluate_measurements, load_ground_truth
 
 
 OVERALL_DIMENSION_REGION_RATIO = 0.12
+OVERALL_DIMENSION_DUPLICATE_TOLERANCE_MM = 5.0
+DEFAULT_OCR_CONFIDENCE_WEIGHT = 0.6
+DEFAULT_ASSOCIATION_CONFIDENCE_WEIGHT = 0.4
 
 
 def _bbox(det) -> BoundingBox:
@@ -47,6 +50,99 @@ def _source(det) -> SourceReference:
         bounding_box=_bbox(det),
         extraction_pass=det.extraction_pass,
     )
+
+
+def _promote_overall_dimensions(
+    parsed_candidates: list[tuple[OCRDetection, ParsedMeasurement]],
+    overall_width_candidates: list[tuple[float | None, float, OverallDimensionSource]],
+    overall_height_candidates: list[tuple[float | None, float, OverallDimensionSource]],
+) -> None:
+    pair_values = [
+        value
+        for _, parsed in parsed_candidates
+        if parsed.kind == "dimension_pair"
+        for value in (parsed.value, parsed.secondary_value)
+        if value is not None
+    ]
+    largest_pair_value = max(pair_values, default=None)
+    promoted_orientations: set[str] = set()
+    promoted_values: dict[str, float] = {}
+
+    for orientation, overall_candidates in (
+        ("horizontal", overall_width_candidates),
+        ("vertical", overall_height_candidates),
+    ):
+        singles = [
+            (det, parsed)
+            for det, parsed in parsed_candidates
+            if parsed.kind != "dimension_pair"
+            and parsed.value is not None
+            and infer_orientation(_bbox(det)) == orientation
+        ]
+        singles.sort(key=lambda candidate: candidate[1].value, reverse=True)
+
+        distinct_value_representatives: list[float] = []
+        for _, parsed in singles:
+            value = parsed.value
+            if not distinct_value_representatives or (
+                distinct_value_representatives[-1] - value
+                > OVERALL_DIMENSION_DUPLICATE_TOLERANCE_MM
+            ):
+                distinct_value_representatives.append(value)
+
+        if len(distinct_value_representatives) < 2:
+            continue
+        largest_value, next_largest_value = distinct_value_representatives[:2]
+        if largest_pair_value is not None and largest_value <= largest_pair_value:
+            continue
+        if largest_value < 1.5 * next_largest_value:
+            continue
+
+        promoted = next(
+            parsed
+            for _, parsed in singles
+            if parsed.value == largest_value
+        )
+        det = next(
+            det
+            for det, parsed in singles
+            if parsed is promoted
+        )
+        box = _bbox(det)
+        source = OverallDimensionSource(
+            raw_text=det.text,
+            bounding_box=box,
+            extraction_pass=det.extraction_pass,
+            confidence=ConfidenceBreakdown(
+                ocr=round(det.confidence, 4),
+                association=1.0,
+                overall=round(
+                    DEFAULT_OCR_CONFIDENCE_WEIGHT * det.confidence
+                    + DEFAULT_ASSOCIATION_CONFIDENCE_WEIGHT,
+                    4,
+                ),
+            ),
+        )
+        overall_candidates.append((promoted.value, det.confidence, source))
+        promoted_orientations.add(orientation)
+        promoted_values[orientation] = promoted.value
+
+    if not promoted_orientations:
+        return
+
+    parsed_candidates[:] = [
+        (det, parsed)
+        for det, parsed in parsed_candidates
+        if not (
+            parsed.kind != "dimension_pair"
+            and parsed.value is not None
+            and infer_orientation(_bbox(det)) in promoted_orientations
+            and abs(
+                parsed.value - promoted_values[infer_orientation(_bbox(det))]
+            )
+            <= OVERALL_DIMENSION_DUPLICATE_TOLERANCE_MM
+        )
+    ]
 
 
 def _merge_room_dimensions(
@@ -192,16 +288,14 @@ def _merge_room_dimensions(
 
 def _application_confidence(
     ocr_conf: float,
-    format_conf: float,
     association_conf: float,
     config: dict,
 ) -> float:
-    """Combine OCR, format, and association scores using configured weights."""
+    """Combine OCR and association scores using configured weights."""
     cfg = config["confidence"]
     score = (
-        float(cfg.get("ocr_weight", 0.45)) * ocr_conf
-        + float(cfg.get("format_weight", 0.25)) * format_conf
-        + float(cfg.get("association_weight", 0.30)) * association_conf
+        float(cfg.get("ocr_weight", 0.6)) * ocr_conf
+        + float(cfg.get("association_weight", 0.4)) * association_conf
     )
     return max(0.0, min(1.0, score))
 
@@ -524,12 +618,10 @@ def extract_plan(
                 extraction_pass=det.extraction_pass,
                 confidence=ConfidenceBreakdown(
                     ocr=round(det.confidence, 4),
-                    format_validation=1.0,
                     association=1.0,
                     overall=round(
                         _application_confidence(
                             det.confidence,
-                            1.0,
                             1.0,
                             config,
                         ),
@@ -543,6 +635,12 @@ def extract_plan(
                 overall_height_candidates.append((parsed.value, det.confidence, source))
             continue
         parsed_candidates.append((det, parsed))
+
+    _promote_overall_dimensions(
+        parsed_candidates,
+        overall_width_candidates,
+        overall_height_candidates,
+    )
 
     # Fallback: if overall width was not detected in the main pass, crop the top
     # region and retry. This follows the same pattern as the scale detection fallback.
@@ -577,12 +675,10 @@ def extract_plan(
                     extraction_pass=det_scaled.extraction_pass,
                     confidence=ConfidenceBreakdown(
                         ocr=round(det_scaled.confidence, 4),
-                        format_validation=1.0,
                         association=1.0,
                         overall=round(
                             _application_confidence(
                                 det_scaled.confidence,
-                                1.0,
                                 1.0,
                                 config,
                             ),
@@ -627,10 +723,8 @@ def extract_plan(
                 name=None,
             )
 
-        format_conf = 1.0
         overall = _application_confidence(
             det.confidence,
-            format_conf,
             assoc_conf,
             config,
         )
@@ -667,7 +761,6 @@ def extract_plan(
             source=_source(det),
             confidence=ConfidenceBreakdown(
                 ocr=round(det.confidence, 4),
-                format_validation=format_conf,
                 association=round(assoc_conf, 4),
                 overall=round(overall, 4),
             ),

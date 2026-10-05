@@ -14,7 +14,6 @@ class BoundingBox(BaseModel):
     y_min: float
     x_max: float
     y_max: float
-    normalized: bool = False
 
     @property
     def center(self) -> Point:
@@ -30,7 +29,6 @@ class BoundingBox(BaseModel):
 
 class ConfidenceBreakdown(BaseModel):
     ocr: float = Field(ge=0, le=1)
-    format_validation: float = Field(ge=0, le=1)
     association: float = Field(ge=0, le=1)
     overall: float = Field(ge=0, le=1)
 

@@ -29,7 +29,6 @@ def make_measurement(value, secondary=None, name=None):
         ),
         confidence=ConfidenceBreakdown(
             ocr=1,
-            format_validation=1,
             association=1,
             overall=1,
         ),
