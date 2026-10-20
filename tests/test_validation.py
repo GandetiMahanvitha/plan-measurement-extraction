@@ -16,16 +16,12 @@ def make_measurement(value, secondary=None, name=None):
         value=value,
         secondary_value=secondary,
         unit="mm",
-        normalized_value_mm=value,
-        normalized_secondary_value_mm=secondary,
         associated_element=AssociatedElement(
-            element_type="space" if name else "unresolved",
             name=name,
         ),
         source=SourceReference(
             raw_text=str(value),
             bounding_box=BoundingBox(x_min=0, y_min=0, x_max=1, y_max=1),
-            extraction_pass="test",
         ),
         confidence=ConfidenceBreakdown(
             ocr=1,
@@ -33,6 +29,29 @@ def make_measurement(value, secondary=None, name=None):
             overall=1,
         ),
     )
+
+
+def test_measurement_output_contains_only_retained_fields():
+    measurement = make_measurement(3600, 3300)
+    output = measurement.model_dump(mode="json")
+
+    assert output["associated_element"] == {"element_id": None, "name": None}
+    assert output["value"] == 3600
+    assert output["secondary_value"] == 3300
+    assert output["unit"] == "mm"
+    assert output["source"] == {
+        "raw_text": "3600",
+        "bounding_box": {"x_min": 0, "y_min": 0, "x_max": 1, "y_max": 1},
+    }
+    assert not {
+        "element_type",
+        "orientation",
+        "corroborated_by_dimension_line",
+        "normalized_value_mm",
+        "normalized_secondary_value_mm",
+        "source_type",
+        "extraction_pass",
+    }.intersection(output)
 
 
 def test_evaluation_perfect_match():

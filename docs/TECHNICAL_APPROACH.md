@@ -110,17 +110,6 @@ Architectural images benefit from preprocessing because:
 
 V1 uses simple grayscale, upscaling and thresholding.
 
-A later version can add:
-
-- deskewing
-- adaptive thresholding
-- morphological cleanup
-- dimension-line detection
-- Hough line detection
-- contour analysis
-- wall / opening geometry extraction
-
-
 
 ## 6. Why deterministic parsing after OCR?
 
@@ -135,27 +124,38 @@ It recognizes patterns such as:
 
 This reduces the chance that drawing numbers, sheet references and identifiers are incorrectly treated as dimensions.
 
-Further production logic can use:
 
-- label context
-- dimension-line topology
-- drawing zone
-- drawing type
-- expected value ranges
-- unit systems
+## 7 Confidence scoring
 
-## 7. Confidence model
+OCR confidence alone is not sufficient, so V1 scores each measurement on two signals:
 
-OCR confidence alone is not sufficient.
+- **OCR confidence**: how sure the OCR engine is that it read the text correctly.
+- **Association confidence**: how closely the number sits to its room label.
 
-V1 combines:
+Overall confidence = `0.6 * OCR confidence + 0.4 * association confidence`.
+The weights are configurable. Overall confidence is used for the confidence
+buckets (high/medium/low) and is not a review trigger by itself.
 
-- OCR confidence
-- association confidence
+**Overall building dimensions.** These describe the whole building, not a room, so there is no
+room to associate them with. Their association confidence is set to a neutral
+placeholder of `1.0`, which means their overall score is driven mainly by OCR
+confidence but is slightly higher than OCR alone. Overall dimensions are kept in a
+separate `overall_dimensions` section and are not subject to the room-based review
+rules below.
 
-Overall confidence is `0.6 * OCR confidence + 0.4 * association confidence`.
-For overall dimensions, association confidence is fixed at `1.0`.
-The purpose is to demonstrate that low-confidence values should be retained with warnings rather than silently discarded.
+**Review flags.** A room measurement is flagged for human review when:
+
+- it cannot be associated with a room,
+- its room has conflicting dimension pairs,
+- its OCR confidence is below 0.50, or
+- its association confidence is below 0.60.
+
+Flags from merging also remain: a pair rebuilt from separate dimension-line
+readings, a room with a single dimension, and a dimension-line reading that
+disagrees with the room's dimension pair. Every flag carries its reason in the
+`ambiguity` text.
+
+
 
 ## 8. Output schema justification
 
@@ -171,19 +171,16 @@ The JSON preserves:
 - value
 - secondary value
 - unit
-- normalized value
 
 ### Evidence
 - raw OCR text
-- source filename
-- page number
 - bounding box
-- extraction pass
 
 ### Interpretation
-- associated element
-- orientation
-- source type
+- associated element ID and name; both are null when unresolved
+- rebuilt pairs have a combined raw text and an ambiguity note explaining that
+  the pair was inferred; the component sources retain each reading's OCR text,
+  bounding box, and OCR confidence for auditability
 
 ### Reliability
 - OCR confidence
@@ -200,7 +197,7 @@ The JSON preserves:
 - extraction summary
 - validation metrics
 
-## 9. AAlternatives compared
+## 9. Alternatives compared
 
 ### A. OCR only
 
@@ -214,80 +211,6 @@ Weaknesses:
 - poor handling of dimension lines
 - may miss rotated text
 - may confuse IDs with measurements
-
-Decision:
-- used only as one layer, not the complete solution.
-
-### B. Traditional CV only
-
-Advantages:
-- deterministic
-- good for lines / geometry
-- explainable
-
-Weaknesses:
-- weak semantic understanding
-- hard to generalize across plan styles
-
-Decision:
-- used for preprocessing now; geometry extraction later.
-
-### C. Multimodal LLM only
-
-Advantages:
-- strong semantic interpretation
-- fast to prototype
-
-Weaknesses:
-- difficult to guarantee completeness
-- may infer or hallucinate
-- can be costly
-- harder to independently validate every measurement
-
-Decision:
-- not selected as the primary extraction engine for V1. A later version may use a vision model as a secondary validator or semantic-association layer.
-
-### D. Document AI services
-
-Advantages:
-- stronger OCR / layout handling
-- managed service
-- potentially better scan performance
-
-Weaknesses:
-- API cost
-- cloud dependency
-- possible data-governance requirements
-
-Decision:
-- strong production candidate, but EasyOCR is used first to keep the prototype local and transparent.
-
-### E. Native PDF parsing
-
-Advantages:
-- preserves text coordinates and vector information
-- avoids unnecessary OCR on digital PDFs
-
-Weaknesses:
-- not applicable to pure scans
-- PDF structure varies widely
-
-Decision:
-- high-priority V2/V3 adapter.
-
-### F. CAD parsing
-
-Advantages:
-- can access native entities, layers and dimensions
-- potentially much higher geometric accuracy
-
-Weaknesses:
-- format complexity
-- DWG support/licensing/tooling concerns
-- different layer conventions
-
-Decision:
-- architecture will add CAD-specific adapters rather than rasterizing every CAD drawing.
 
 
 ## 10. Future input architecture
@@ -484,4 +407,4 @@ this repository.
 
 I did not accept AI-generated code without verifying it. Two concrete
 examples where an initial AI-suggested fix was wrong and had to be
-corrected after testing:
+corrected after testing

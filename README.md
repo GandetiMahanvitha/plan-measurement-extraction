@@ -236,12 +236,12 @@ A downstream material-calculation system should not receive only a minimal strin
 That drops too much evidence.
 Instead, each measurement preserves:
 
-- normalized value
+- value and secondary value in millimetres
 - raw OCR text
-- source type
-- location
-- orientation
-- associated element
+- source bounding box
+- associated element ID and name (both null when unresolved)
+- pairs rebuilt from separate readings include both original readings in
+  `component_sources` with each reading's OCR confidence, plus an ambiguity note explaining the inference
 - OCR confidence
 - association confidence
 - overall confidence
@@ -264,7 +264,7 @@ Application confidence:     0.78
 
 The overall confidence is calculated as `0.6 * OCR confidence + 0.4 * association confidence`.
  
-A lower-confidence but syntactically valid measurement is retained and marked for review instead of silently discarded.
+Measurements are flagged for review when they have no associated room, their room has conflicting dimension pairs, their OCR confidence is below 0.50, or their association confidence is below 0.60. Existing merge-based warnings remain for inferred pairs, rooms with a single dimension, and dimension-line disagreements. Overall confidence remains available for confidence buckets but does not by itself trigger review.
 
 
 # 10. Known V1 limitations

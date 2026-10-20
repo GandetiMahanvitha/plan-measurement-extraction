@@ -1,0 +1,52 @@
+{
+  "plans": {
+    "plan1": {
+      "matched": 5,
+      "missed": 2,
+      "unexpected": 3,
+      "precision": 0.625,
+      "recall": 0.7143,
+      "accuracy": 0.5
+    },
+    "plan2": {
+      "matched": 4,
+      "missed": 1,
+      "unexpected": 1,
+      "precision": 0.6667,
+      "recall": 0.6667,
+      "accuracy": 0.5714
+    },
+    "plan3": {
+      "matched": 7,
+      "missed": 0,
+      "unexpected": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "accuracy": 1.0
+    },
+    "plan4": {
+      "matched": 6,
+      "missed": 0,
+      "unexpected": 1,
+      "precision": 0.75,
+      "recall": 0.8571,
+      "accuracy": 0.75
+    },
+    "plan5": {
+      "matched": 5,
+      "missed": 2,
+      "unexpected": 3,
+      "precision": 0.625,
+      "recall": 0.7143,
+      "accuracy": 0.5
+    },
+    "plan6": {
+      "matched": 4,
+      "missed": 3,
+      "unexpected": 1,
+      "precision": 0.8,
+      "recall": 0.5714,
+      "accuracy": 0.5
+    }
+  }
+}

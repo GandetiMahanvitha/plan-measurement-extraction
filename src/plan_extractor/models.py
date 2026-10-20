@@ -33,20 +33,17 @@ class ConfidenceBreakdown(BaseModel):
     overall: float = Field(ge=0, le=1)
 
 
-class DocumentSource(BaseModel):
-    file_name: str
-    page_number: int = 1
-
-
 class SourceReference(BaseModel):
     raw_text: str
     bounding_box: BoundingBox
-    extraction_pass: str
+
+
+class ComponentSource(SourceReference):
+    ocr: float = Field(ge=0, le=1)
 
 
 class AssociatedElement(BaseModel):
     element_id: Optional[str] = None
-    element_type: str = "unresolved"
     name: Optional[str] = None
 
 
@@ -57,21 +54,10 @@ class Measurement(BaseModel):
     value: Optional[float] = None
     secondary_value: Optional[float] = None
     unit: Optional[str] = None
-    #everytime mm cannot be a unit in there or generally we are giving mm
-    normalized_value_mm: Optional[float] = None
-    normalized_secondary_value_mm: Optional[float] = None
-    orientation: Literal["horizontal", "vertical", "unknown"] = "unknown"
-    source_type: Literal[
-        "explicit_text",
-        "dimension_pair_text",
-        "scale_calculated",
-        "native_vector",
-        "unknown",
-    ] = "explicit_text"
     associated_element: AssociatedElement
     source: SourceReference
+    component_sources: list[ComponentSource] = Field(default_factory=list)
     confidence: ConfidenceBreakdown
-    corroborated_by_dimension_line: bool = False
     ambiguity: Optional[str] = None
     review_required: bool = False
 
@@ -140,7 +126,6 @@ class PlanResult(BaseModel):
     image_width_px: int
     image_height_px: int
     primary_unit: str = "mm"
-    document_source: DocumentSource
     scale: ScaleInfo
     overall_dimensions: OverallDimensions
     spaces: list[Space]

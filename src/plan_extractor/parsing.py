@@ -4,7 +4,7 @@ from dataclasses import dataclass
 import re
 
 NON_ROOM_TEXT = {"sample", "plan", "scale", "north"}
-_ROOM_LABEL_PATTERN = re.compile(r"[A-Za-z][A-Za-z0-9/ ]*")
+_ROOM_LABEL_PATTERN = re.compile(r"[A-Za-z][A-Za-z0-9/ .]*")
 
 
 @dataclass(frozen=True)
@@ -22,21 +22,55 @@ def normalize_ocr_text(text: str) -> str:
     This gives equivalent OCR variants a consistent form before regex parsing.
     """
     text = text.strip()
+    text = text.replace("''", '"')
+    text = text.translate(
+        str.maketrans(
+            {
+                "’": "'",
+                "‘": "'",
+                "`": "'",
+                "´": "'",
+                "′": "'",
+                "”": '"',
+                "“": '"',
+                "″": '"',
+            }
+        )
+    )
     text = text.replace("×", "x")
     text = re.sub(r"\s+", " ", text)
     return text
 
 
-def is_plausible_room_label(text: str) -> bool:
+def is_plausible_room_label(
+    text: str,
+    non_room_vocabulary: list[str] | None = None,
+) -> bool:
     """Check the OCR text shape and vocabulary for a plausible room label."""
     normalized = normalize_ocr_text(text)
     if not _ROOM_LABEL_PATTERN.fullmatch(normalized):
         return False
 
-    words = re.findall(r"[A-Za-z]+", re.sub(r"[\d/]", "", normalized).lower())
+    normalized_lower = normalized.lower()
+    if normalized_lower == "w.i.c.":
+        return True
+    excluded_terms = NON_ROOM_TEXT | {
+        term.strip().lower()
+        for term in (non_room_vocabulary or [])
+        if term.strip()
+    }
+    if any(
+        re.search(
+            rf"(?<![a-z0-9]){re.escape(term)}(?![a-z0-9])",
+            normalized_lower,
+        )
+        for term in excluded_terms
+    ):
+        return False
+
+    words = re.findall(r"[A-Za-z]+", re.sub(r"[\d/]", "", normalized_lower))
     return (
         any(len(word) >= 3 for word in words)
-        and not any(word in NON_ROOM_TEXT for word in words)
     )
 
 
@@ -153,6 +187,45 @@ def parse_imperial(text: str) -> ParsedMeasurement | None:
         unit="mm",
     )
 
+
+def parse_imperial_pair(text: str) -> ParsedMeasurement | None:
+    """Parse two imperial dimensions separated by x or X."""
+    clean = normalize_ocr_text(text)
+    halves = re.fullmatch(r"\s*(.*?)\s*[xX]\s*(.*?)\s*", clean)
+    if not halves:
+        return None
+
+    first = parse_imperial(halves.group(1))
+    second = parse_imperial(halves.group(2))
+    if first is None or second is None:
+        return None
+
+    return ParsedMeasurement(
+        kind="dimension_pair",
+        raw_text=text,
+        value=first.value,
+        secondary_value=second.value,
+        unit="mm",
+    )
+
+
+def parse_parenthesized_imperial(text: str) -> ParsedMeasurement | None:
+    """Parse a parenthesized imperial value as contextual, not room-size, data."""
+    clean = normalize_ocr_text(text)
+    match = re.fullmatch(r"\(\s*(.*?)\s*\)", clean)
+    if not match:
+        return None
+    parsed = parse_imperial(match.group(1))
+    if parsed is None:
+        return None
+
+    return ParsedMeasurement(
+        kind="context_dimension",
+        raw_text=text,
+        value=parsed.value,
+        unit="mm",
+    )
+
 # 9.5 not handled
 def parse_inches_only(text: str) -> ParsedMeasurement | None:
     """Parse bare inch values, including optional fractional inches, to millimeters."""
@@ -219,6 +292,8 @@ def parse_measurement(text: str) -> ParsedMeasurement | None:
     return (
         parse_scale(text)
         or parse_dimension_pair(text)
+        or parse_imperial_pair(text)
+        or parse_parenthesized_imperial(text)
         or parse_single_dimension(text)
     )
 #Examples it doesn’t currently handle include fractional feet (12 1/2'), decimal inches (9.5"), '

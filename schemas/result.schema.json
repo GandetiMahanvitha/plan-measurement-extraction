@@ -11,7 +11,6 @@
     "image_width_px",
     "image_height_px",
     "primary_unit",
-    "document_source",
     "scale",
     "overall_dimensions",
     "spaces",
@@ -28,15 +27,6 @@
     "image_width_px": { "type": "integer" },
     "image_height_px": { "type": "integer" },
     "primary_unit": { "type": "string" },
-    "document_source": {
-      "type": "object",
-      "required": ["file_name", "page_number"],
-      "properties": {
-        "file_name": { "type": "string" },
-        "page_number": { "type": "integer" }
-      },
-      "additionalProperties": false
-    },
     "scale": {
       "type": "object",
       "required": ["detected"],
@@ -53,8 +43,64 @@
       "properties": {
         "width_mm": { "type": ["number", "null"] },
         "height_mm": { "type": ["number", "null"] },
-        "width_source": { "type": ["object", "null"] },
-        "height_source": { "type": ["object", "null"] }
+        "width_source": {
+          "type": ["object", "null"],
+          "required": ["raw_text", "bounding_box", "confidence"],
+          "properties": {
+            "raw_text": { "type": "string" },
+            "bounding_box": {
+              "type": "object",
+              "required": ["x_min", "y_min", "x_max", "y_max"],
+              "properties": {
+                "x_min": { "type": "number" },
+                "y_min": { "type": "number" },
+                "x_max": { "type": "number" },
+                "y_max": { "type": "number" }
+              },
+              "additionalProperties": false
+            },
+            "confidence": {
+              "type": "object",
+              "required": ["ocr", "association", "overall"],
+              "properties": {
+                "ocr": { "type": "number" },
+                "association": { "type": "number" },
+                "overall": { "type": "number" }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "height_source": {
+          "type": ["object", "null"],
+          "required": ["raw_text", "bounding_box", "confidence"],
+          "properties": {
+            "raw_text": { "type": "string" },
+            "bounding_box": {
+              "type": "object",
+              "required": ["x_min", "y_min", "x_max", "y_max"],
+              "properties": {
+                "x_min": { "type": "number" },
+                "y_min": { "type": "number" },
+                "x_max": { "type": "number" },
+                "y_max": { "type": "number" }
+              },
+              "additionalProperties": false
+            },
+            "confidence": {
+              "type": "object",
+              "required": ["ocr", "association", "overall"],
+              "properties": {
+                "ocr": { "type": "number" },
+                "association": { "type": "number" },
+                "overall": { "type": "number" }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        }
       },
       "additionalProperties": false
     },
@@ -68,7 +114,7 @@
           "name": { "type": "string" },
           "source": {
             "type": "object",
-            "required": ["raw_text", "bounding_box", "extraction_pass"],
+            "required": ["raw_text", "bounding_box"],
             "properties": {
               "raw_text": { "type": "string" },
               "bounding_box": {
@@ -79,10 +125,11 @@
                   "y_min": { "type": "number" },
                   "x_max": { "type": "number" },
                   "y_max": { "type": "number" }
-                }
-              },
-              "extraction_pass": { "type": "string" }
-            }
+                },
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false
           },
           "dimensions": { "type": "array", "items": { "type": "string" } }
         },
@@ -100,14 +147,10 @@
           "value",
           "secondary_value",
           "unit",
-          "normalized_value_mm",
-          "normalized_secondary_value_mm",
-          "orientation",
-          "source_type",
           "associated_element",
           "source",
+          "component_sources",
           "confidence",
-          "corroborated_by_dimension_line",
           "ambiguity",
           "review_required"
         ],
@@ -118,22 +161,18 @@
           "value": { "type": ["number", "null"] },
           "secondary_value": { "type": ["number", "null"] },
           "unit": { "type": ["string", "null"] },
-          "normalized_value_mm": { "type": ["number", "null"] },
-          "normalized_secondary_value_mm": { "type": ["number", "null"] },
-          "orientation": { "enum": ["horizontal", "vertical", "unknown"] },
-          "source_type": { "type": "string" },
           "associated_element": {
             "type": "object",
-            "required": ["element_id", "element_type", "name"],
+            "required": ["element_id", "name"],
             "properties": {
               "element_id": { "type": ["string", "null"] },
-              "element_type": { "type": "string" },
               "name": { "type": ["string", "null"] }
-            }
+            },
+            "additionalProperties": false
           },
           "source": {
             "type": "object",
-            "required": ["raw_text", "bounding_box", "extraction_pass"],
+            "required": ["raw_text", "bounding_box"],
             "properties": {
               "raw_text": { "type": "string" },
               "bounding_box": {
@@ -144,9 +183,33 @@
                   "y_min": { "type": "number" },
                   "x_max": { "type": "number" },
                   "y_max": { "type": "number" }
-                }
+                },
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false
+          },
+          "component_sources": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["raw_text", "bounding_box", "ocr"],
+              "properties": {
+                "raw_text": { "type": "string" },
+                "bounding_box": {
+                  "type": "object",
+                  "required": ["x_min", "y_min", "x_max", "y_max"],
+                  "properties": {
+                    "x_min": { "type": "number" },
+                    "y_min": { "type": "number" },
+                    "x_max": { "type": "number" },
+                    "y_max": { "type": "number" }
+                  },
+                  "additionalProperties": false
+                },
+                "ocr": { "type": "number" }
               },
-              "extraction_pass": { "type": "string" }
+              "additionalProperties": false
             }
           },
           "confidence": {
@@ -158,7 +221,6 @@
               "overall": { "type": "number" }
             }
           },
-          "corroborated_by_dimension_line": { "type": "boolean" },
           "ambiguity": { "type": ["string", "null"] },
           "review_required": { "type": "boolean" }
         },

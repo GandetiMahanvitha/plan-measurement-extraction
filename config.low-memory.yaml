@@ -19,9 +19,44 @@ preprocessing:
   gaussian_kernel: 3
 
 confidence:
-  review_threshold: 0.75
+  room_label_min_confidence: 0.75
+  ocr_review_threshold: 0.50
+  association_review_threshold: 0.60
   ocr_weight: 0.6
   association_weight: 0.4
+
+room_labels:
+  alias_min_confidence: 0.60
+  duplicate_overlap_threshold: 0.5
+  known_room_min_confidence: 0.55
+  known_room_words:
+    - kitchen
+    - breakfast
+    - pantry
+    - foyer
+    - garage
+    - porch
+    - bath
+    - bedroom
+    - living
+    - dining
+    - library
+    - study
+    - family
+    - laundry
+    - store
+    - closet
+    - w.i.c.
+  ocr_aliases:
+    "IPANTRY": "PANTRY"
+    "WJ.C:": "W.I.C."
+  non_room_vocabulary:
+    - above
+    - open to
+    - door
+    - opt
+    - dn
+    - up
 
 association:
   max_normalized_distance: 0.35

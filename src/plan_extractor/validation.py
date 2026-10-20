@@ -95,17 +95,17 @@ def evaluate_measurements(
                 """Score a candidate by how closely it matches the expected room measurement."""
                 _, act = candidate
                 primary_distance = (
-                    abs(exp.value_mm - act.normalized_value_mm)
-                    if act.normalized_value_mm is not None
+                    abs(exp.value_mm - act.value)
+                    if act.value is not None
                     else float("inf")
                 )
                 secondary_distance = (
-                    abs(exp.secondary_value_mm - act.normalized_secondary_value_mm)
+                    abs(exp.secondary_value_mm - act.secondary_value)
                     if exp.secondary_value_mm is not None
-                    and act.normalized_secondary_value_mm is not None
+                    and act.secondary_value is not None
                     else 0.0
                     if exp.secondary_value_mm is None
-                    and act.normalized_secondary_value_mm is None
+                    and act.secondary_value is None
                     else float("inf")
                 )
                 return primary_distance + secondary_distance
@@ -119,10 +119,10 @@ def evaluate_measurements(
             for i, act in enumerate(actual):
                 if i in used:
                     continue
-                if act.normalized_value_mm is None:
+                if act.value is None:
                     continue
-                if _close(exp.value_mm, act.normalized_value_mm, tolerance_mm) and _close(
-                    exp.secondary_value_mm, act.normalized_secondary_value_mm, tolerance_mm
+                if _close(exp.value_mm, act.value, tolerance_mm) and _close(
+                    exp.secondary_value_mm, act.secondary_value, tolerance_mm
                 ):
                     candidate_idx = i
                     break
@@ -133,14 +133,14 @@ def evaluate_measurements(
 
         used.add(candidate_idx)
         act = actual[candidate_idx]
-        same_primary = _close(exp.value_mm, act.normalized_value_mm, tolerance_mm)
+        same_primary = _close(exp.value_mm, act.value, tolerance_mm)
         same_secondary = _close(
-            exp.secondary_value_mm, act.normalized_secondary_value_mm, tolerance_mm
+            exp.secondary_value_mm, act.secondary_value, tolerance_mm
         )
 
         if same_primary and same_secondary:
             correct += 1
-        elif _looks_like_unit_mismatch(exp.value_mm, act.normalized_value_mm):
+        elif _looks_like_unit_mismatch(exp.value_mm, act.value):
             incorrect_unit += 1
         else:
             incorrect_value += 1
