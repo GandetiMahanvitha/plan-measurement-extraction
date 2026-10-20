@@ -10,7 +10,7 @@ if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
 from plan_extractor.config import load_config
-from plan_extractor.ocr_engine import EasyOCREngine
+from plan_extractor.ocr_engine import create_ocr_engine
 from plan_extractor.pipeline import extract_plan
 
 
@@ -33,7 +33,7 @@ def main() -> int:
         return 1
 
     config = load_config(CONFIG_PATH)
-    engine = EasyOCREngine(config)
+    engine = create_ocr_engine(config)
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     failed = False
 

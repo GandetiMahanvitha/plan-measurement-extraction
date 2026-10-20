@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Iterable
+from typing import Iterable, Protocol
 import re
 
 import numpy as np
@@ -51,6 +51,20 @@ class OCRDetection:
     def y_max(self) -> float:
         """Return the largest y coordinate in the detected quadrilateral."""
         return max(p[1] for p in self.bbox)
+
+
+class OCREngine(Protocol):
+    def read_general(self, image: np.ndarray) -> list[OCRDetection]:
+        """Read general text from an image."""
+        ...
+
+    def read_dimensions(
+        self,
+        image: np.ndarray,
+        extraction_pass: str = "dimension",
+    ) -> list[OCRDetection]:
+        """Read dimension text from an image."""
+        ...
 
 
 def filter_detections_by_text_shape(
@@ -350,7 +364,7 @@ def _adjacent_label_boxes(first: OCRDetection, second: OCRDetection) -> bool:
     return same_line or stacked_lines
 
 
-class EasyOCREngine:
+class EasyOCREngine(OCREngine):
     def __init__(self, config: dict):
         """Initialize EasyOCR with the project's language and runtime settings."""
         import easyocr
@@ -445,6 +459,16 @@ class EasyOCREngine:
         detections = self._convert(rows, extraction_pass)
         self._debug_raw(detections, extraction_pass)
         return detections
+
+
+def create_ocr_engine(config: dict) -> OCREngine:
+    """Create the configured OCR engine, defaulting to EasyOCR."""
+    engine_name = config.get("ocr", {}).get("engine", "easyocr")
+    if engine_name == "easyocr":
+        return EasyOCREngine(config)
+    raise ValueError(
+        f"Unknown OCR engine {engine_name!r}. Valid engines: easyocr."
+    )
 
 
 def _iou(a: OCRDetection, b: OCRDetection) -> float:

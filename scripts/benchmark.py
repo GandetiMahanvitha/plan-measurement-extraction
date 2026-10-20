@@ -13,7 +13,7 @@ if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
 from plan_extractor.config import load_config
-from plan_extractor.ocr_engine import EasyOCREngine
+from plan_extractor.ocr_engine import create_ocr_engine
 from plan_extractor.pipeline import extract_plan
 
 
@@ -172,7 +172,7 @@ def main() -> int:
     for setting in settings:
         config = config_by_setting[setting]
         print(f"\nPreparing EasyOCR engine for setting {setting}.", flush=True)
-        engine = EasyOCREngine(config)
+        engine = create_ocr_engine(config)
 
         for plan in plans:
             image_path = image_by_plan[plan]

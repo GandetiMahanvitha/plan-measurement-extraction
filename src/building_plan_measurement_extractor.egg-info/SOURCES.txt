@@ -15,8 +15,12 @@ src/plan_extractor/parsing.py
 src/plan_extractor/pipeline.py
 src/plan_extractor/preprocessing.py
 src/plan_extractor/validation.py
+tests/test_check_regression.py
 tests/test_deduplication_with_offset.py
+tests/test_ocr_engine_factory.py
+tests/test_ocr_pass_merging.py
+tests/test_ocr_text_filter.py
+tests/test_overall_dimension_promotion.py
 tests/test_parsing.py
 tests/test_room_dimension_merge.py
-tests/test_sample_regression.py
 tests/test_validation.py

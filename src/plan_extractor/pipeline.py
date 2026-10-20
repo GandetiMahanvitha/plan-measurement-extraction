@@ -24,8 +24,9 @@ from .models import (
     WarningItem,
 )
 from .ocr_engine import (
-    EasyOCREngine,
     OCRDetection,
+    OCREngine,
+    create_ocr_engine,
     deduplicate,
     filter_detections_by_text_shape,
 )
@@ -753,7 +754,7 @@ def extract_plan(
     image_path: str | Path,
     config: dict,
     ground_truth_path: str | Path | None = None,
-    engine: EasyOCREngine | None = None,
+    engine: OCREngine | None = None,
 ) -> PlanResult:
     """Extract spaces, dimensions, evidence, and validation data from a plan image."""
     total_started = perf_counter()
@@ -774,7 +775,7 @@ def extract_plan(
     engine_init_seconds = 0.0
     if engine is None:
         engine_started = perf_counter()
-        engine = EasyOCREngine(config)
+        engine = create_ocr_engine(config)
         engine_init_seconds = perf_counter() - engine_started
         print(f"Timing [{path.name}] OCR engine initialization: {engine_init_seconds:.3f}s")
 
